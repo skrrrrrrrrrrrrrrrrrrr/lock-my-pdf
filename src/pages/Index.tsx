@@ -56,7 +56,8 @@ const Index = () => {
       formData.append('pdf', selectedFile);
       formData.append('password', password);
 
-      const response = await fetch('https://lock-my-pdf.onrender.com/encrypt-pdf', {
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://lock-my-pdf.onrender.com';
+      const response = await fetch(`${apiBaseUrl}/encrypt-pdf`, {
         method: 'POST',
         body: formData,
       });
