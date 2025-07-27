@@ -17,6 +17,7 @@ const Index = () => {
   const [isComplete, setIsComplete] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [encryptedFileUrl, setEncryptedFileUrl] = useState<string | null>(null);
   
   const { toast } = useToast();
 
@@ -51,9 +52,24 @@ const Index = () => {
     setPasswordError('');
 
     try {
-      // Here you would connect to your Python Flask backend
-      // For demo purposes, we'll simulate the process
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const formData = new FormData();
+      formData.append('pdf', selectedFile);
+      formData.append('password', password);
+
+      const response = await fetch('https://lock-my-pdf.onrender.com/encrypt-pdf', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Encryption failed');
+      }
+
+      // Create blob URL for download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      setEncryptedFileUrl(url);
       
       setIsComplete(true);
       toast({
@@ -63,7 +79,7 @@ const Index = () => {
     } catch (error) {
       toast({
         title: "Encryption Failed",
-        description: "There was an error encrypting your PDF. Please try again.",
+        description: error instanceof Error ? error.message : "There was an error encrypting your PDF. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -72,11 +88,19 @@ const Index = () => {
   };
 
   const handleDownload = () => {
-    // This would trigger the download of the encrypted PDF
-    toast({
-      title: "Download Started",
-      description: "Your encrypted PDF is being downloaded.",
-    });
+    if (encryptedFileUrl && selectedFile) {
+      const link = document.createElement('a');
+      link.href = encryptedFileUrl;
+      link.download = `${selectedFile.name.replace('.pdf', '')}_encrypted.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Download Started",
+        description: "Your encrypted PDF is being downloaded.",
+      });
+    }
   };
 
   const handleReset = () => {
@@ -86,6 +110,10 @@ const Index = () => {
     setIsComplete(false);
     setUploadError('');
     setPasswordError('');
+    if (encryptedFileUrl) {
+      window.URL.revokeObjectURL(encryptedFileUrl);
+      setEncryptedFileUrl(null);
+    }
   };
 
   const canEncrypt = selectedFile && password && confirmPassword && password === confirmPassword && password.length >= 8;
